@@ -7,14 +7,15 @@
 
 ## 1. Paseo daemon 插件包运行时约束 ⭐ 最高频
 
-**现象**：装依赖即崩 `ReferenceError: __dirname is not defined`；或 `createRequire(import.meta.url)` 报 "The argument 'filename' must be a file URL object… Received undefined"。
+**现象**：装依赖即崩 `ReferenceError: __dirname is not defined`；或 `createRequire(import.meta.url)` 报 "The argument 'filename' must be a file URL object… Received undefined"；Paseo 0.16 目录安装还会因 `process.argv[1]` 指向宿主应用而报运行时 SDK 找不到。
 
 **根因**：daemon（0.15.2）用 esbuild 把插件 server 入口打成 **CJS**，再经 `wrapCommonJsBundle` 包成 `(function(require){…})` 在普通函数作用域内 eval——`__dirname` / `__filename` / `import.meta` 全部不可用。任何被静态 import 的依赖只要源码引用裸 `__dirname` 就会加载即炸（实测：`@larksuiteoapi/node-sdk` 顶层读自身 package.json；`@whiskeysockets/baileys` 拖进 pino/thread-stream/protobufjs）。
 
 **修复**：重 SDK 走运行时装载（`server/channels/runtime-loader.ts`），specifier 收进运行时字符串（esbuild 保持不透明）：
 
 ```ts
-const require_ = createRequire(join(dirname(process.argv[1]), "package.json")); // 子进程入口必在插件目录内
+// Paseo 0.16 优先读取 config.plugins["paseo-im"].path；旧宿主再回退 argv/cwd。
+const require_ = createRequire(join(configuredPluginRoot, "package.json"));
 export async function loadPackage<T>(name: string): Promise<T> {
   const entry = require_.resolve(name);
   return import(pathToFileURL(entry).href) as T;  // CJS/ESM 通吃
@@ -22,6 +23,8 @@ export async function loadPackage<T>(name: string): Promise<T> {
 ```
 
 类型侧用 `import type` + `typeof import("pkg")` 别名（擦除，不影响打包）。ws/marked/entities 等干净包可静态 import。
+
+**验证**：`tests/runtime-loader.test.ts` 构造独立 Paseo home 与目录插件，令 `argv` 不指向插件，断言仍能从配置目录的 `node_modules` 动态载入依赖；飞书与 WhatsApp 共用该装载器。
 
 **其余同族约束**：
 - daemon 日志**按行**捕获插件 console 输出——多行 stack 被拆成独立日志条目，取帧要按时间窗抓连续 sequence；跨 RPC 重建的 Error 无 stack（`stack ?? message` 记日志可兜底）。

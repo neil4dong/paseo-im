@@ -27,6 +27,7 @@
 
 | 主题 | 现象 | 根因 | 细节 |
 | --- | --- | --- | --- |
+| Paseo 0.16 运行时 SDK 找不到 | 飞书/WhatsApp 连接启动时报模块缺失 | 插件进程的 `argv[1]` 改为宿主应用入口，运行时解析锚点失效 | gotchas §1 |
 | Telegram 出站全网失败 | 连接报「网络错误」自动重试，同机 curl 正常 | WSL2 双栈域名 IPv6 路由黑洞，node 拨号卡 v6 不回退 v4 | gotchas §5.5 |
 | 插件重载丢在途回复 | 重载窗口内的 agent 回复静默丢失 | 内存队列蒸发，job 冻结 dispatch null/sent | gotchas §7 |
 | 微信配对无二维码 | 点击扫码配对无响应/白卡 | qrUrl 是 text/html 落地页 + pollLogin 30s 阻塞 + configure 鸡生蛋死锁 | gotchas §5.7 |
