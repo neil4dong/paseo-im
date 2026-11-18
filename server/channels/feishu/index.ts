@@ -705,7 +705,7 @@ export class FeishuAdapter implements ChannelAdapter {
           chatId,
           threadId,
           undefined,
-          "card",
+          "interactive",
           JSON.stringify({ type: "card", data: { card_id: cardId } }),
         );
       } catch (error) {

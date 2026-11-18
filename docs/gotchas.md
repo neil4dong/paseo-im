@@ -31,6 +31,16 @@ export async function loadPackage<T>(name: string): Promise<T> {
 - `features.webUi.enabled` 属 `restartRequiredPaths`：改了必须 `paseo daemon restart`（会杀掉以该 daemon 为宿主的 agent 会话）。
 - 双实例验收：`PASEO_HOME=~/.paseo-webui`（独立 home + 端口 + WebUI 开 + `pluginsEnabled`）起第二 daemon，Playwright headless 对真实 WebUI 断言，不动生产。
 
+### 1.1 飞书 CardKit 实体发送的消息类型
+
+**现象**：CardKit 卡片实体创建成功，但把 `card_id` 发到会话时返回错误码 230001：`invalid msg_type: card`，进度卡退化为最终文本。
+
+**根因**：卡片实体 API 的资源名称是 card，但 IM 发送消息接口的 `msg_type` 仍必须是 `interactive`；`content` 才使用 `{"type":"card","data":{"card_id":"..."}}`。
+
+**修复**：保留 CardKit 创建和更新流程，只把发送卡片实体时的消息类型从 `card` 改为 `interactive`。
+
+**验证**：飞书适配器测试同时断言 `msg_type=interactive`、卡片实体 content、CardKit append/finish 更新序列；实机日志不再出现 230001 后才可标记飞书卡片验收通过。
+
 ## 2. Node 24 strip-only 直跑 TS + zod v4
 
 - **禁 TS 参数属性** `constructor(private readonly x)`（strip-only 不支持）→ 显式字段 + 构造器赋值。

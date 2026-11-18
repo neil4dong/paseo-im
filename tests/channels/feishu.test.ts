@@ -649,7 +649,7 @@ test("流式进度：cardkit 卡片创建 → 发送卡片消息 → append/fini
   const { streamId } = await harness.adapter.streamStart!("oc_group1");
   assert.equal(harness.lark.cardCreates.length, 1);
   assert.equal(cardContent(harness.lark.cardCreates[0]), "⏳ 正在处理…");
-  assert.equal(harness.lark.creates[0]?.msg_type, "card");
+  assert.equal(harness.lark.creates[0]?.msg_type, "interactive");
   assert.deepEqual(JSON.parse(harness.lark.creates[0]?.content ?? "{}"), {
     type: "card",
     data: { card_id: "card_v1_1" },
