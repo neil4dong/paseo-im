@@ -50,9 +50,6 @@ export interface GroupMembershipEvent {
 
 export interface ChannelCapabilities {
   progress: ProgressMode;
-  /** Optional acknowledgement reaction added to the inbound message before
-   * progress starts. Each channel chooses its own platform-native value. */
-  receiptReaction?: string;
   markdown: "native" | "html" | "custom" | "plain";
   uploadImage: boolean;
   uploadFile: boolean;

@@ -41,6 +41,16 @@ export async function loadPackage<T>(name: string): Promise<T> {
 
 **验证**：飞书适配器测试同时断言 `msg_type=interactive`、卡片实体 content、CardKit append/finish 更新序列；实机日志不再出现 230001 后才可标记飞书卡片验收通过。
 
+### 1.2 飞书表情标识大小写敏感
+
+**现象**：桥接层已调用表情回复接口，但飞书返回 231001 `reaction type is invalid`，客户端看不到回执。
+
+**根因**：“收到”表情的 OpenAPI 标识是大小写敏感的 `Get`，不是显示文案式的 `GET`。
+
+**修复**：通用桥接接口改为渠道无关的 `acknowledgeMessage()`；飞书适配器在内部选择 `Get`。通用层不再声明 reaction 或飞书枚举值。
+
+**验证**：适配器测试断言回执调用最终发送 `emoji_type: "Get"`，通用桥接测试只断言渠道回执发生在进度卡启动之前。
+
 ## 2. Node 24 strip-only 直跑 TS + zod v4
 
 - **禁 TS 参数属性** `constructor(private readonly x)`（strip-only 不支持）→ 显式字段 + 构造器赋值。

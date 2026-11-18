@@ -41,6 +41,10 @@ export interface ChannelAdapter {
   streamAppend?(streamId: string, text: string): Promise<void>;
   streamFinish?(streamId: string, text: string): Promise<{ messageId?: string }>;
   sendTyping?(chatId: string): Promise<void>;
+  /** Best-effort, channel-native acknowledgement for an accepted inbound
+   * message. The adapter chooses reaction, read state, typing, or another
+   * platform-specific mechanism. */
+  acknowledgeMessage?(messageId: string, chatId: string): Promise<void>;
   addReaction?(messageId: string, chatId: string, emoji: string): Promise<void>;
   leaveChat?(chatId: string): Promise<void>;
   /** Credential/transport sanity check invoked from the settings screen. */

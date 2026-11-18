@@ -33,15 +33,14 @@ interface TestHarness {
 function makeAdapter(
   sent: (OutboundText & { messageId?: string })[],
   noReceipt = false,
-  receiptReaction?: string,
+  acknowledgement = false,
   events: string[] = [],
-  reactionError = false,
+  acknowledgementError = false,
 ): ChannelAdapter {
   return {
     channel: "telegram",
     capabilities: {
-      progress: receiptReaction ? "stream" : "none",
-      ...(receiptReaction ? { receiptReaction } : {}),
+      progress: acknowledgement ? "stream" : "none",
       markdown: "plain",
       uploadImage: false,
       uploadFile: false,
@@ -50,9 +49,9 @@ function makeAdapter(
       maxChunkChars: 4000,
       threads: false,
     },
-    async addReaction(_messageId: string, _chatId: string, emoji: string): Promise<void> {
-      events.push(`reaction:${emoji}`);
-      if (reactionError) throw new Error("reaction unavailable");
+    async acknowledgeMessage(): Promise<void> {
+      events.push("acknowledge");
+      if (acknowledgementError) throw new Error("acknowledgement unavailable");
     },
     async streamStart(): Promise<{ streamId: string }> {
       events.push("progress:start");
@@ -150,8 +149,8 @@ async function harness(options: {
   policyOverrides?: Partial<Policy>;
   timelineEntries?: unknown[];
   noReceipt?: boolean;
-  receiptReaction?: string;
-  reactionError?: boolean;
+  acknowledgement?: boolean;
+  acknowledgementError?: boolean;
 }): Promise<TestHarness> {
   const root = await mkdtemp(join(tmpdir(), "paseo-im-bridge-"));
   const sent: (OutboundText & { messageId?: string })[] = [];
@@ -174,7 +173,13 @@ async function harness(options: {
     connectionId: CONNECTION_ID,
     config: () => config,
     adapter: () =>
-      makeAdapter(sent, options.noReceipt === true, options.receiptReaction, events, options.reactionError === true),
+      makeAdapter(
+        sent,
+        options.noReceipt === true,
+        options.acknowledgement === true,
+        events,
+        options.acknowledgementError === true,
+      ),
     state,
     queue,
     daemon: () => Promise.resolve(makeApi(agentCalls, options.timelineEntries ?? [])),
@@ -218,21 +223,21 @@ test("私聊消息全链路：派发→等待→分段回复", async () => {
   h.deferred.stop();
 });
 
-test("适配器声明回执时：先回应原消息，再启动并完成进度流", async () => {
-  const h = await harness({ receiptReaction: "GET" });
+test("适配器实现渠道回执时：先回应原消息，再启动并完成进度流", async () => {
+  const h = await harness({ acknowledgement: true });
   await h.bridge.handle(dmMessage());
   await h.queue.idle();
-  assert.deepEqual(h.events, ["reaction:GET", "progress:start", "progress:finish:模型回答"]);
+  assert.deepEqual(h.events, ["acknowledge", "progress:start", "progress:finish:模型回答"]);
   assert.equal(h.state.job("m1")?.delivery, "done");
   h.deferred.stop();
 });
 
 test("消息回执失败只告警，不阻断进度和最终结果", async () => {
-  const h = await harness({ receiptReaction: "GET", reactionError: true });
+  const h = await harness({ acknowledgement: true, acknowledgementError: true });
   await h.bridge.handle(dmMessage());
   await h.queue.idle();
-  assert.deepEqual(h.events, ["reaction:GET", "progress:start", "progress:finish:模型回答"]);
-  assert.ok(h.logs.some((line) => line.includes("消息回执失败：reaction unavailable")));
+  assert.deepEqual(h.events, ["acknowledge", "progress:start", "progress:finish:模型回答"]);
+  assert.ok(h.logs.some((line) => line.includes("消息回执失败：acknowledgement unavailable")));
   assert.equal(h.state.job("m1")?.delivery, "done");
   h.deferred.stop();
 });

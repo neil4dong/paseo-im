@@ -454,8 +454,10 @@ function sanitizeName(name: string, fallback: string): string {
   return cleaned || fallback;
 }
 
-/** 常用 emoji → 飞书 emoji_type；已是大写键名的直接透传。 */
+/** 常用 emoji/别名 → 飞书大小写敏感的 emoji_type。 */
 const EMOJI_TYPES: Record<string, string> = {
+  GET: "Get",
+  Get: "Get",
   "👍": "THUMBSUP",
   "👎": "THUMBSDOWN",
   "❤️": "HEART",
@@ -515,7 +517,6 @@ export class FeishuAdapter implements ChannelAdapter {
   readonly channel = "feishu" as const;
   readonly capabilities: ChannelCapabilities = {
     progress: "stream",
-    receiptReaction: "GET",
     markdown: "native",
     uploadImage: true,
     uploadFile: true,
@@ -774,6 +775,10 @@ export class FeishuAdapter implements ChannelAdapter {
           throw feishuError("添加表情回复", error);
         }),
     );
+  }
+
+  async acknowledgeMessage(messageId: string, chatId: string): Promise<void> {
+    await this.addReaction(messageId, chatId, "Get");
   }
 
   async leaveChat(chatId: string): Promise<void> {

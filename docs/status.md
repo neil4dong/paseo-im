@@ -16,9 +16,9 @@
 
 ### 飞书回执与进度卡二次开发（待实机验收）
 
-- 通用桥接层新增可选的 `receiptReaction` 能力：适配器声明后，先在收到的原消息上添加平台原生表情，再启动既有进度生命周期；表情失败只记告警，不阻断任务。
-- 飞书适配器声明 `GET`，继续使用原有 CardKit `streamStart → streamAppend → streamFinish` 更新同一张进度卡。
-- 其他 IM 未声明该能力，代码路径和现有行为保持不变；以后可由各自适配器选择本平台支持的回执值。
+- 通用桥接层只调用适配器可选的 `acknowledgeMessage()`，不规定回执必须是表情，也不承载任何飞书枚举值；失败只记告警，不阻断任务。
+- 飞书适配器内部使用平台合法的 `Get` 表情，继续使用原有 CardKit `streamStart → streamAppend → streamFinish` 更新同一张进度卡。
+- 其他 IM 未实现该方法，代码路径和现有行为保持不变；以后可由各自适配器选择 reaction、已读、typing 或其他平台机制。
 - 自动化证明：桥接顺序、失败降级、飞书 GET 映射和原有 CardKit 全序列测试通过。真实飞书客户端验收步骤见 `docs/webui-acceptance.md` F 节，目前状态为待实机复核。
 
 会话绑定现状（`connections/<id>/state.json` 的 conversations）：QQ/TG/微信 DM 均指向共同对话 agent（target-agent）。修改去向请走 App「连接详情 → 消息去向」保存——save 时自动把跟随旧 agent 的会话绑定迁移/矫正（gotchas §5.8），无需手动清理。
@@ -29,6 +29,7 @@
 | --- | --- | --- | --- |
 | Paseo 0.16 运行时 SDK 找不到 | 飞书/WhatsApp 连接启动时报模块缺失 | 插件进程的 `argv[1]` 改为宿主应用入口，运行时解析锚点失效 | gotchas §1 |
 | 飞书进度卡发送被拒 | CardKit 创建成功但发送时报 230001 | IM 消息类型误用 `card`，正确值为 `interactive` | gotchas §1.1 |
+| 飞书 GET 回执被拒 | 添加表情返回 231001 | 平台标识大小写敏感，正确值为 `Get`；通用层不应携带平台枚举 | gotchas §1.2 |
 | Telegram 出站全网失败 | 连接报「网络错误」自动重试，同机 curl 正常 | WSL2 双栈域名 IPv6 路由黑洞，node 拨号卡 v6 不回退 v4 | gotchas §5.5 |
 | 插件重载丢在途回复 | 重载窗口内的 agent 回复静默丢失 | 内存队列蒸发，job 冻结 dispatch null/sent | gotchas §7 |
 | 微信配对无二维码 | 点击扫码配对无响应/白卡 | qrUrl 是 text/html 落地页 + pollLogin 30s 阻塞 + configure 鸡生蛋死锁 | gotchas §5.7 |

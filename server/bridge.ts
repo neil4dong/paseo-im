@@ -277,9 +277,8 @@ export class Bridge {
 
   private async acknowledge(job: Job): Promise<void> {
     const adapter = this.deps.adapter();
-    const reaction = adapter.capabilities.receiptReaction;
-    if (!reaction || !adapter.addReaction) return;
-    await adapter.addReaction(job.messageId, job.chatId, reaction).catch((error) => {
+    if (!adapter.acknowledgeMessage) return;
+    await adapter.acknowledgeMessage(job.messageId, job.chatId).catch((error) => {
       this.deps.log("warn", `消息回执失败：${(error as Error).message}`);
     });
   }

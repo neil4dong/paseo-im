@@ -36,7 +36,7 @@ A✅ B✅（握手/心跳看门狗/4004/瞬断重连/stop/abort）C✅（dm/thre
 
 ### feishu（31 用例）
 A✅（含 bot info 业务码/网络失败）B✅（WS 退避/abort 清理）C✅（p2p/群@占位替换/reply 双路径/去重重启/图片/文件/post 富文本）D✅（分块/reply_in_thread/空文本/业务码/sendMedia 30MB）E✅（cardkit 全序列/无权限降级/broken/超长分条）F— G✅（addReaction/leaveChat/isAdmin 群主+管理员）H✅（own 持久化）I⚠️（重连✅，无限速用例）J⚠️（命令菜单注册未测）
-新增桥接顺序断言：飞书声明 `receiptReaction: "GET"` 后，通用桥接层先对原消息添加 GET 表情，再创建 CardKit 进度卡；回执失败只告警，仍创建并完成进度卡。其他渠道未声明该能力，行为不变。
+新增桥接顺序断言：适配器实现 `acknowledgeMessage()` 后，通用桥接层先执行渠道原生回执，再创建进度卡；回执失败只告警，仍创建并完成进度卡。飞书在适配器内部选择 `Get` 表情，其他渠道未实现该方法时行为不变。
 **缺口**：菜单注册兜底；媒体下载受 imageMaxDownloadMb 约束的用例；语音占位。
 
 ### dingtalk（23 用例）
