@@ -339,6 +339,7 @@ test("definition：渠道与能力（卡片流式进度、4 000 字分块）", a
   const adapter = definition.create(harness.ctx);
   assert.deepEqual(adapter.capabilities, {
     progress: "stream",
+    receiptReaction: "GET",
     markdown: "native",
     uploadImage: true,
     uploadFile: true,
@@ -742,7 +743,11 @@ test("addReaction：emoji 映射为飞书 emoji_type", async () => {
   const harness = await createHarness();
   await harness.adapter.start();
   await harness.adapter.addReaction!("om_msg1", "oc_group1", "👍");
-  assert.deepEqual(harness.lark.reactions, [{ message_id: "om_msg1", emoji_type: "THUMBSUP" }]);
+  await harness.adapter.addReaction!("om_msg2", "oc_group1", "GET");
+  assert.deepEqual(harness.lark.reactions, [
+    { message_id: "om_msg1", emoji_type: "THUMBSUP" },
+    { message_id: "om_msg2", emoji_type: "GET" },
+  ]);
   await assert.rejects(harness.adapter.addReaction!("om_msg1", "oc_group1", "看不懂"), UserFacingError);
 });
 

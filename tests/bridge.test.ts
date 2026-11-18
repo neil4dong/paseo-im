@@ -27,13 +27,21 @@ interface TestHarness {
   deps: BridgeDeps;
   waitResults: unknown[];
   logs: string[];
+  events: string[];
 }
 
-function makeAdapter(sent: (OutboundText & { messageId?: string })[], noReceipt = false): ChannelAdapter {
+function makeAdapter(
+  sent: (OutboundText & { messageId?: string })[],
+  noReceipt = false,
+  receiptReaction?: string,
+  events: string[] = [],
+  reactionError = false,
+): ChannelAdapter {
   return {
     channel: "telegram",
     capabilities: {
-      progress: "none",
+      progress: receiptReaction ? "stream" : "none",
+      ...(receiptReaction ? { receiptReaction } : {}),
       markdown: "plain",
       uploadImage: false,
       uploadFile: false,
@@ -41,6 +49,18 @@ function makeAdapter(sent: (OutboundText & { messageId?: string })[], noReceipt 
       typing: false,
       maxChunkChars: 4000,
       threads: false,
+    },
+    async addReaction(_messageId: string, _chatId: string, emoji: string): Promise<void> {
+      events.push(`reaction:${emoji}`);
+      if (reactionError) throw new Error("reaction unavailable");
+    },
+    async streamStart(): Promise<{ streamId: string }> {
+      events.push("progress:start");
+      return { streamId: "stream-1" };
+    },
+    async streamFinish(_streamId: string, text: string): Promise<{ messageId?: string }> {
+      events.push(`progress:finish:${text}`);
+      return { messageId: "progress-1" };
     },
     async sendText(outbound: OutboundText): Promise<SendResult> {
       if (noReceipt) {
@@ -130,11 +150,14 @@ async function harness(options: {
   policyOverrides?: Partial<Policy>;
   timelineEntries?: unknown[];
   noReceipt?: boolean;
+  receiptReaction?: string;
+  reactionError?: boolean;
 }): Promise<TestHarness> {
   const root = await mkdtemp(join(tmpdir(), "paseo-im-bridge-"));
   const sent: (OutboundText & { messageId?: string })[] = [];
   const agentCalls = { send: [] as { text: string; options?: unknown }[], respond: [] as unknown[] };
   const logs: string[] = [];
+  const events: string[] = [];
   const state = new StateStore(CONNECTION_ID, root);
   await state.load();
   const queue = new AgentQueue();
@@ -150,7 +173,8 @@ async function harness(options: {
   const deps: BridgeDeps = {
     connectionId: CONNECTION_ID,
     config: () => config,
-    adapter: () => makeAdapter(sent, options.noReceipt === true),
+    adapter: () =>
+      makeAdapter(sent, options.noReceipt === true, options.receiptReaction, events, options.reactionError === true),
     state,
     queue,
     daemon: () => Promise.resolve(makeApi(agentCalls, options.timelineEntries ?? [])),
@@ -160,7 +184,7 @@ async function harness(options: {
     log: (level, message) => logs.push(`${level}: ${message}`),
   };
   const bridge = new Bridge(deps, new Router(deps.daemon));
-  return { bridge, queue, state, deferred, sent, agentCalls, deps, waitResults: [], logs };
+  return { bridge, queue, state, deferred, sent, agentCalls, deps, waitResults: [], logs, events };
 }
 
 function dmMessage(overrides: Partial<NormalizedMessage> = {}): NormalizedMessage {
@@ -191,6 +215,25 @@ test("私聊消息全链路：派发→等待→分段回复", async () => {
   const job = h.state.job("m1");
   assert.equal(job?.delivery, "done");
   assert.equal(job?.agentId, AGENT_ID);
+  h.deferred.stop();
+});
+
+test("适配器声明回执时：先回应原消息，再启动并完成进度流", async () => {
+  const h = await harness({ receiptReaction: "GET" });
+  await h.bridge.handle(dmMessage());
+  await h.queue.idle();
+  assert.deepEqual(h.events, ["reaction:GET", "progress:start", "progress:finish:模型回答"]);
+  assert.equal(h.state.job("m1")?.delivery, "done");
+  h.deferred.stop();
+});
+
+test("消息回执失败只告警，不阻断进度和最终结果", async () => {
+  const h = await harness({ receiptReaction: "GET", reactionError: true });
+  await h.bridge.handle(dmMessage());
+  await h.queue.idle();
+  assert.deepEqual(h.events, ["reaction:GET", "progress:start", "progress:finish:模型回答"]);
+  assert.ok(h.logs.some((line) => line.includes("消息回执失败：reaction unavailable")));
+  assert.equal(h.state.job("m1")?.delivery, "done");
   h.deferred.stop();
 });
 

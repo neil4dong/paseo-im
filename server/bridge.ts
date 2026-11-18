@@ -275,6 +275,15 @@ export class Bridge {
     return createProgressSink(this.deps.adapter(), job.chatId, job.threadId ?? undefined, this.deps.log);
   }
 
+  private async acknowledge(job: Job): Promise<void> {
+    const adapter = this.deps.adapter();
+    const reaction = adapter.capabilities.receiptReaction;
+    if (!reaction || !adapter.addReaction) return;
+    await adapter.addReaction(job.messageId, job.chatId, reaction).catch((error) => {
+      this.deps.log("warn", `消息回执失败：${(error as Error).message}`);
+    });
+  }
+
   private async answerWithTimeout(job: Job, sink: ProgressSink, budgetMs: number): Promise<string> {
     const timeout = Promise.withResolvers<never>();
     const timer = setTimeout(() => timeout.reject(new DeferredTimeoutError()), budgetMs);
@@ -302,6 +311,7 @@ export class Bridge {
       void sink.refresh(elapsed).catch(() => {});
     }, progressIntervalMs);
     try {
+      await this.acknowledge(job);
       await sink.start();
       const settings = await this.deps.settings();
       const budgetMs = Math.max(60_000, settings.deferTimeoutMinutes * 60_000);

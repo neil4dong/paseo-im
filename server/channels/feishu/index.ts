@@ -515,6 +515,7 @@ export class FeishuAdapter implements ChannelAdapter {
   readonly channel = "feishu" as const;
   readonly capabilities: ChannelCapabilities = {
     progress: "stream",
+    receiptReaction: "GET",
     markdown: "native",
     uploadImage: true,
     uploadFile: true,

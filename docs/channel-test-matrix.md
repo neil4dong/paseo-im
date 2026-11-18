@@ -12,7 +12,7 @@
 | B 传输生命周期 | 握手序列、瞬时错误退避 [1,3,5,10,30]、致命错误终止、断线恢复、stop 幂等与资源清理、signal 中止 |
 | C 入站规范化 | dm/group 判定、@提及（多种形态）、回复机器人（含 ring/get 兜底）、媒体下载落盘（上限/白名单）、自身消息与噪音过滤、msgId 去重与重启语义、时间戳回退 |
 | D 发送与分块 | fence-aware 分块（maxChunkChars）、markdown 渲染/降级、messageId 返回、回复引用、空文本、媒体回传（上传→发送、大小上限）、失败中文包装 |
-| E 进度展示 | edit/stream/typing 对应渠道能力的方法序列、降级回退、broken/超长路径 |
+| E 进度展示 | 适配器声明的原消息回执 → edit/stream/typing 对应渠道能力的方法序列、降级回退、broken/超长路径；回执失败不阻断任务 |
 | F 配对/登录 | QR 状态机（pending→scanned→ok/failed/expired）、凭据产物字段、auth 目录加固 |
 | G 权限与群管理 | isAdmin 数据源解析、leaveChat/移除、群成员事件→审批流 |
 | H 状态持久化 | cursor/seen/会话绑定/token 绑定（换凭据清空）、重启续跑 |
@@ -36,6 +36,7 @@ A✅ B✅（握手/心跳看门狗/4004/瞬断重连/stop/abort）C✅（dm/thre
 
 ### feishu（31 用例）
 A✅（含 bot info 业务码/网络失败）B✅（WS 退避/abort 清理）C✅（p2p/群@占位替换/reply 双路径/去重重启/图片/文件/post 富文本）D✅（分块/reply_in_thread/空文本/业务码/sendMedia 30MB）E✅（cardkit 全序列/无权限降级/broken/超长分条）F— G✅（addReaction/leaveChat/isAdmin 群主+管理员）H✅（own 持久化）I⚠️（重连✅，无限速用例）J⚠️（命令菜单注册未测）
+新增桥接顺序断言：飞书声明 `receiptReaction: "GET"` 后，通用桥接层先对原消息添加 GET 表情，再创建 CardKit 进度卡；回执失败只告警，仍创建并完成进度卡。其他渠道未声明该能力，行为不变。
 **缺口**：菜单注册兜底；媒体下载受 imageMaxDownloadMb 约束的用例；语音占位。
 
 ### dingtalk（23 用例）
@@ -70,8 +71,8 @@ A✅（authMode 推导/缺凭据/whoami 不一致/401）B✅（首次 sync 不�
 A✅（testConnection 三态/非 darwin 门禁）B✅（启动错误三态/瞬时退避）C✅（文本/attributedBody 解码/附件/回环前缀/服务过滤/时间回退）D✅（AppleScript 转义/前缀幂等/校验/权限错误）E— F— G— H✅（cursor/seen/重启续跑）I✅ J✅（typedstream）
 **缺口**：同账号多设备 handle 边界；chat.db schema 变更容错。
 
-### 引擎/框架层（25 用例）
-✅ files 原子写/WriteChain/sleep、policy 矩阵、queue 串行与中止、fence 分块、registry 乐观锁、state 作业/去重环/问题单、bridge 全链路/提问代答/幂等去重/超时补发。
+### 引擎/框架层（27 用例）
+✅ files 原子写/WriteChain/sleep、policy 矩阵、queue 串行与中止、fence 分块、registry 乐观锁、state 作业/去重环/问题单、bridge 全链路/提问代答/幂等去重/超时补发/适配器声明回执顺序与失败降级。
 **缺口**：`manager.save` 配置往返与 revision 冲突（registry 层已测，manager 层未）；`runtime-loader` 并发首载竞态。~~choices 过滤单测~~ → 已补 `tests/choices.test.ts`（4 用例：过滤不可用/缺 id 丢弃/modes 兜底/label 回退）。
 
 ## 汇总

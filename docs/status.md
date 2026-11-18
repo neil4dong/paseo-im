@@ -14,6 +14,13 @@
 | 微信 | PaseoWeChatBot | ✅ 在线 | 共同对话 agent（共享历史） | iLink 扫码配对实机闭环；二维码本地 PNG 生成；仅私聊 |
 | 其余 9 渠道 | — | 适配器/单测齐备 | — | 实机联调待凭据，按 `docs/channel-test-matrix.md` K 清单逐渠道验收 |
 
+### 飞书回执与进度卡二次开发（待实机验收）
+
+- 通用桥接层新增可选的 `receiptReaction` 能力：适配器声明后，先在收到的原消息上添加平台原生表情，再启动既有进度生命周期；表情失败只记告警，不阻断任务。
+- 飞书适配器声明 `GET`，继续使用原有 CardKit `streamStart → streamAppend → streamFinish` 更新同一张进度卡。
+- 其他 IM 未声明该能力，代码路径和现有行为保持不变；以后可由各自适配器选择本平台支持的回执值。
+- 自动化证明：桥接顺序、失败降级、飞书 GET 映射和原有 CardKit 全序列测试通过。真实飞书客户端验收步骤见 `docs/webui-acceptance.md` F 节，目前状态为待实机复核。
+
 会话绑定现状（`connections/<id>/state.json` 的 conversations）：QQ/TG/微信 DM 均指向共同对话 agent（target-agent）。修改去向请走 App「连接详情 → 消息去向」保存——save 时自动把跟随旧 agent 的会话绑定迁移/矫正（gotchas §5.8），无需手动清理。
 
 ## 2. 缺陷修复索引（实机调试全记录，按主题）
